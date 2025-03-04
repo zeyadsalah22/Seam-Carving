@@ -2,7 +2,6 @@ import skimage as ski
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-import os
 
 def convolve(image, kernel):
   height, width = image.shape
@@ -93,11 +92,12 @@ def get_seam(image):
   energy = get_energy(image)
   return greedy_approach(dp_approach(energy))
 
+
 # Load the image
-image = ski.io.imread("C:/Users/Lenovo/OneDrive - Egypt Japan University Of Science and Technology (E-JUST)/Desktop/EJUST/8th Semester/Computer Vision/Labs/image3.png")
+image = ski.io.imread("boy.png")
 
 # Number of seams to remove
-num_seams = 50  # Change this to control how much the image shrinks
+num_seams = 100
 
 # Create a figure
 fig, ax = plt.subplots()
@@ -108,9 +108,9 @@ images = [image]
 # Seam carving loop
 for _ in range(num_seams):
     seam = get_seam(images[-1])  # Get the seam
-    marked_image = mark_seam(images[-1], seam)  # Mark it
+    marked_image = mark_seam(images[-1], seam)
     images.append(marked_image)  # Store marked image
-    new_image = remove_seam(images[-1], seam)  # Remove seam
+    new_image = remove_seam(images[-1], seam)
     images.append(new_image)  # Store the new image
 
 # Function to update frames
@@ -123,5 +123,6 @@ def update(frame):
 
 # Create animation
 ani = animation.FuncAnimation(fig, update, frames=len(images), interval=300)
+ani.save("seam_carving.gif", writer="pillow", fps=10)  # Save as GIF
 
 plt.show()
