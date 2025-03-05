@@ -34,17 +34,19 @@ def get_energy(image):
   
   return energy
 
-def greedy_approach(energy):
+def greedy_approach(energy, horizontal=True):
+    if not horizontal:
+        energy = energy.T  # Transpose for vertical seam processing
+
     n, m = energy.shape
     path = np.zeros(n, dtype=np.int32)
-
     path[0] = np.argmin(energy[0])  # Get index of min energy in first row
 
     for i in range(1, n):
         prev = path[i - 1]
-        path[i] = prev  
+        path[i] = prev
 
-        # Check right and left neighbors and update path accordingly
+        # Check left and right (or top and bottom when transposed)
         if prev < m - 1 and energy[i, prev + 1] < energy[i, prev]:
             path[i] = prev + 1
         if prev > 0 and energy[i, prev - 1] < energy[i, path[i]]:
@@ -52,45 +54,59 @@ def greedy_approach(energy):
 
     return path
 
-def dp_approach(energy):
-    n, m = energy.shape
-    dp = np.zeros((n, m), dtype=np.float32) 
 
+def dp_approach(energy, horizontal=True):
+    
+    if not horizontal:
+        energy = energy.T # Transpose for vertical seam processing
+    
+    n, m = energy.shape
+    dp = np.zeros((n, m), dtype=np.float32)
     dp[-1, :] = energy[-1, :]  # Initialize last row with energy values
 
-    for i in range(n - 2, -1, -1):  # Iterate from second last row to the top
+    for i in range(n - 2, -1, -1):  # Iterate from second last row to top
         for j in range(m):
             dp[i, j] = dp[i + 1, j] + energy[i, j]
             if j > 0:
                 dp[i, j] = min(dp[i, j], dp[i + 1, j - 1] + energy[i, j])
             if j < m - 1:
                 dp[i, j] = min(dp[i, j], dp[i + 1, j + 1] + energy[i, j])
+    return dp if horizontal else dp.T
 
-    return dp
-
-def mark_seam(image, seam, color=(148, 0, 211)):  # Violet (RGB: 148, 0, 211)
+def mark_seam(image, seam, color=(148, 0, 211), horizontal=True):  
     marked_image = image.copy()
-    
-    for i in range(len(seam)):
-        marked_image[i][seam[i]] = color
-    
+
+    if horizontal:
+        for i in range(len(seam)):
+            marked_image[i, seam[i]] = color  # Mark vertical seam
+    else:
+        for j in range(len(seam)):
+            marked_image[seam[j], j] = color  # Mark horizontal seam
+
     return marked_image
 
-def remove_seam(image, seam):
+def remove_seam(image, seam, horizontal=True):
     height, width, channels = image.shape
-    
-    # Create an output image with the same shape, but one less column
-    new_image = np.zeros((height, width - 1, channels), dtype=image.dtype)
+    if horizontal:
+        new_image = np.zeros((height, width - 1, channels), dtype=image.dtype)
 
-    for i in range(height):
-        j = seam[i]
-        new_image[i, :, :] = np.concatenate((image[i, :j, :], image[i, j+1:, :]), axis=0)  # Shift left instead of using np.delete
+        for i in range(height):
+            j = seam[i]
+            new_image[i, :, :] = np.concatenate((image[i, :j, :], image[i, j+1:, :]), axis=0)
+
+    else:
+        new_image = np.zeros((height - 1, width, channels), dtype=image.dtype)
+
+        for j in range(width):
+            i = seam[j]
+            new_image[:, j, :] = np.concatenate((image[:i, j, :], image[i+1:, j, :]), axis=0)
 
     return new_image
 
-def get_seam(image):
+
+def get_seam(image, horizontal = True):
   energy = get_energy(image)
-  return greedy_approach(dp_approach(energy))
+  return greedy_approach(dp_approach(energy, horizontal), horizontal)
 
 
 # Load the image
@@ -104,13 +120,14 @@ fig, ax = plt.subplots()
 
 # Store images for animation
 images = [image]
+horizontal = False
 
 # Seam carving loop
 for _ in range(num_seams):
-    seam = get_seam(images[-1])  # Get the seam
-    marked_image = mark_seam(images[-1], seam)
+    seam = get_seam(images[-1], horizontal)  # Get the seam
+    marked_image = mark_seam(images[-1], seam, horizontal= horizontal)
     images.append(marked_image)  # Store marked image
-    new_image = remove_seam(images[-1], seam)
+    new_image = remove_seam(images[-1], seam, horizontal = horizontal)
     images.append(new_image)  # Store the new image
 
 # Function to update frames
@@ -123,6 +140,10 @@ def update(frame):
 
 # Create animation
 ani = animation.FuncAnimation(fig, update, frames=len(images), interval=300)
-ani.save("seam_carving.gif", writer="pillow", fps=10)  # Save as GIF
+
+ani.save("boy_animation_ver.gif", writer="pillow", fps=10)  # Save as GIF
+ski.io.imsave("scaled_boy_100_ver.png", images[-1])  # Save the final resized image
 
 plt.show()
+
+
